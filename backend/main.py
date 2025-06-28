@@ -406,7 +406,3 @@ async def cancel_match_request(request_id: int, current_user: dict = Depends(get
     request_data["status"] = "cancelled"
     
     return MatchRequestResponse(**request_data)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
