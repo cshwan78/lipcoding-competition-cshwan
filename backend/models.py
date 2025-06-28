@@ -40,12 +40,10 @@ class UserResponse(BaseModel):
     profile: ProfileResponse
 
 class UpdateProfileRequest(BaseModel):
-    id: int
     name: str
-    role: UserRole
     bio: str
-    image: Optional[str] = None
     skills: Optional[List[str]] = None
+    image: Optional[str] = None
 
 # Match request models
 class MatchRequestCreate(BaseModel):

@@ -1,10 +1,13 @@
-from fastapi import FastAPI, HTTPException, Depends, status, File, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, status, File, UploadFile, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, RedirectResponse
 from typing import List, Optional
 import base64
 import uuid
+import io
+import json
+import json
 from models import (
     UserRole, MatchRequestStatus, SignupRequest, LoginRequest, LoginResponse,
     ProfileResponse, UserResponse, MatchRequestCreate, MatchRequestResponse,
@@ -136,6 +139,11 @@ async def login(request: LoginRequest):
     
     return LoginResponse(token=access_token)
 
+@app.get("/main")
+async def main_page():
+    """로그인 후 메인 페이지로 리다이렉트"""
+    return RedirectResponse(url="http://localhost:3000")
+
 # 2. 사용자 정보 API
 @app.get("/api/me")
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
@@ -157,14 +165,18 @@ async def get_profile_image(role: str, id: int, current_user: dict = Depends(get
     if image_data:
         # Base64 디코딩해서 이미지 반환
         try:
+            # data:image/jpeg;base64, 같은 prefix가 있다면 제거
+            if ',' in image_data:
+                image_data = image_data.split(',')[1]
+            
             image_bytes = base64.b64decode(image_data)
             return Response(content=image_bytes, media_type="image/jpeg")
-        except:
-            pass
+        except Exception as e:
+            print(f"Error decoding image: {e}")
     
     # 기본 이미지 URL로 리다이렉트
     default_url = DEFAULT_MENTOR_IMAGE if role == "mentor" else DEFAULT_MENTEE_IMAGE
-    raise HTTPException(status_code=302, headers={"Location": default_url})
+    return RedirectResponse(url=default_url)
 
 @app.put("/api/profile")
 async def update_profile(request: UpdateProfileRequest, current_user: dict = Depends(get_current_user)):
@@ -177,10 +189,10 @@ async def update_profile(request: UpdateProfileRequest, current_user: dict = Dep
     profile_data = {
         "name": request.name,
         "bio": request.bio,
-        "imageUrl": f"/api/images/{request.role.value}/{user_id}"
+        "imageUrl": f"/api/images/{current_user['role']}/{user_id}"
     }
     
-    if request.role == UserRole.MENTOR and request.skills:
+    if current_user["role"] == "mentor" and request.skills:
         profile_data["skills"] = request.skills
     
     profiles_db[user_id] = profile_data
@@ -192,7 +204,7 @@ async def update_profile(request: UpdateProfileRequest, current_user: dict = Dep
     return UserResponse(
         id=user_id,
         email=current_user["email"],
-        role=request.role,
+        role=current_user["role"],
         profile=ProfileResponse(**profile_data)
     )
 
