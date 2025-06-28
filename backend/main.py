@@ -70,6 +70,11 @@ async def root():
     """루트 경로 - Swagger UI로 리다이렉트"""
     return RedirectResponse(url="/swagger-ui")
 
+@app.get("/v3/api-docs")
+async def get_openapi_spec():
+    """OpenAPI 스펙 반환 (Spring Boot 스타일)"""
+    return app.openapi()
+
 # 1. 인증 API
 @app.post("/api/signup", status_code=201)
 async def signup(request: SignupRequest):
@@ -165,18 +170,14 @@ async def get_profile_image(role: str, id: int, current_user: dict = Depends(get
     if image_data:
         # Base64 디코딩해서 이미지 반환
         try:
-            # data:image/jpeg;base64, 같은 prefix가 있다면 제거
-            if ',' in image_data:
-                image_data = image_data.split(',')[1]
-            
             image_bytes = base64.b64decode(image_data)
             return Response(content=image_bytes, media_type="image/jpeg")
-        except Exception as e:
-            print(f"Error decoding image: {e}")
+        except:
+            pass
     
     # 기본 이미지 URL로 리다이렉트
     default_url = DEFAULT_MENTOR_IMAGE if role == "mentor" else DEFAULT_MENTEE_IMAGE
-    return RedirectResponse(url=default_url)
+    raise HTTPException(status_code=302, headers={"Location": default_url})
 
 @app.put("/api/profile")
 async def update_profile(request: UpdateProfileRequest, current_user: dict = Depends(get_current_user)):
@@ -189,10 +190,10 @@ async def update_profile(request: UpdateProfileRequest, current_user: dict = Dep
     profile_data = {
         "name": request.name,
         "bio": request.bio,
-        "imageUrl": f"/api/images/{current_user['role']}/{user_id}"
+        "imageUrl": f"/api/images/{request.role.value}/{user_id}"
     }
     
-    if current_user["role"] == "mentor" and request.skills:
+    if request.role == UserRole.MENTOR and request.skills:
         profile_data["skills"] = request.skills
     
     profiles_db[user_id] = profile_data
@@ -204,7 +205,7 @@ async def update_profile(request: UpdateProfileRequest, current_user: dict = Dep
     return UserResponse(
         id=user_id,
         email=current_user["email"],
-        role=current_user["role"],
+        role=request.role,
         profile=ProfileResponse(**profile_data)
     )
 

@@ -68,7 +68,8 @@ export default {
         })
         
         localStorage.setItem('token', response.data.token)
-        this.$router.push('/profile')
+        // 로그인 성공 후 메인 페이지로 이동
+        window.location.href = '/index.html'
       } catch (error) {
         console.error('로그인 실패:', error)
         if (error.response?.status === 401) {
